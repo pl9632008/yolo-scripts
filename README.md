@@ -17,3 +17,6 @@ labelme2coco.py
 
 # 6.coco转yoloseg:  
 coco2yoloseg.py  
+
+# 7.生成背景图标签:  
+generate_empty_labels.py  
