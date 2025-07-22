@@ -20,3 +20,9 @@ coco2yoloseg.py
 
 # 7.生成背景图标签:  
 generate_empty_labels.py  
+
+# 8.重新对json中的图片的二进制赋值:  
+modify_json.py  
+
+# 7.重新命名json和对应的img:  
+rename_json.py
