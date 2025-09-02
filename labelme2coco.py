@@ -12,6 +12,9 @@ import imgviz
 import numpy as np
 
 import labelme
+import shutil
+
+import cv2
 
 try:
     import pycocotools.mask
@@ -88,114 +91,163 @@ def main():
     out_ann_file = osp.join(args.output_dir, "annotations.json")
     label_files = glob.glob(osp.join(args.input_dir, "*.json"))
     for image_id, filename in enumerate(label_files):
-        print("Generating dataset from:", filename)
 
-        label_file = labelme.LabelFile(filename=filename)
 
-        base = osp.splitext(osp.basename(filename))[0]
-        out_img_file = osp.join(args.output_dir, "JPEGImages", base + ".jpg")
+        try:
+            
+            
 
-        img = labelme.utils.img_data_to_arr(label_file.imageData)
-        imgviz.io.imsave(out_img_file, img)
-        data["images"].append(
-            dict(
-                license=0,
-                url=None,
-                file_name=osp.relpath(out_img_file, osp.dirname(out_ann_file)),
-                height=img.shape[0],
-                width=img.shape[1],
-                date_captured=None,
-                id=image_id,
-            )
-        )
+            print("Generating dataset from:", filename)
 
-        masks = {}  # for area
-        segmentations = collections.defaultdict(list)  # for segmentation
-        for shape in label_file.shapes:
-            points = shape["points"]
-            label = shape["label"]
-            group_id = shape.get("group_id")
-            shape_type = shape.get("shape_type", "polygon")
-            mask = labelme.utils.shape_to_mask(img.shape[:2], points, shape_type)
+            label_file = labelme.LabelFile(filename=filename)
 
-            if group_id is None:
-                group_id = uuid.uuid1()
+            base = osp.splitext(osp.basename(filename))[0]
 
-            instance = (label, group_id)
+            out_img_file = osp.join(args.output_dir, "JPEGImages", base + ".jpg")
 
-            if instance in masks:
-                masks[instance] = masks[instance] | mask
-            else:
-                masks[instance] = mask
+            img_path = args.input_dir +"/"+ label_file.imagePath
 
-            if shape_type == "rectangle":
-                (x1, y1), (x2, y2) = points
-                x1, x2 = sorted([x1, x2])
-                y1, y2 = sorted([y1, y2])
-                points = [x1, y1, x2, y1, x2, y2, x1, y2]
-            if shape_type == "circle":
-                (x1, y1), (x2, y2) = points
-                r = np.linalg.norm([x2 - x1, y2 - y1])
-                # r(1-cos(a/2))<x, a=2*pi/N => N>pi/arccos(1-x/r)
-                # x: tolerance of the gap between the arc and the line segment
-                n_points_circle = max(int(np.pi / np.arccos(1 - 1 / r)), 12)
-                i = np.arange(n_points_circle)
-                x = x1 + r * np.sin(2 * np.pi / n_points_circle * i)
-                y = y1 + r * np.cos(2 * np.pi / n_points_circle * i)
-                points = np.stack((x, y), axis=1).flatten().tolist()
-            else:
-                points = np.asarray(points).flatten().tolist()
+            img = cv2.imread(img_path, cv2.COLOR_BGR2RGB)
+            cv2.imwrite(out_img_file, img)
 
-            segmentations[instance].append(points)
-        segmentations = dict(segmentations)
+            # img = labelme.utils.img_data_to_arr(label_file.imageData)
+            # imgviz.io.imsave(out_img_file, img)
 
-        for instance, mask in masks.items():
-            cls_name, group_id = instance
-            if cls_name not in class_name_to_id:
-                continue
-            cls_id = class_name_to_id[cls_name]
 
-            mask = np.asfortranarray(mask.astype(np.uint8))
-            mask = pycocotools.mask.encode(mask)
-            area = float(pycocotools.mask.area(mask))
-            bbox = pycocotools.mask.toBbox(mask).flatten().tolist()
-
-            data["annotations"].append(
+            data["images"].append(
                 dict(
-                    id=len(data["annotations"]),
-                    image_id=image_id,
-                    category_id=cls_id,
-                    segmentation=segmentations[instance],
-                    area=area,
-                    bbox=bbox,
-                    iscrowd=0,
+                    license=0,
+                    url=None,
+                    file_name=osp.relpath(out_img_file, osp.dirname(out_ann_file)),
+                    height=img.shape[0],
+                    width=img.shape[1],
+                    date_captured=None,
+                    id=image_id,
                 )
             )
 
-        if not args.noviz:
-            viz = img
-            if masks:
-                labels, captions, masks = zip(
-                    *[
-                        (class_name_to_id[cnm], cnm, msk)
-                        for (cnm, gid), msk in masks.items()
-                        if cnm in class_name_to_id
-                    ]
+            masks = {}  # for area
+            segmentations = collections.defaultdict(list)  # for segmentation
+            for shape in label_file.shapes:
+                points = shape["points"]
+                label = shape["label"]
+                group_id = shape.get("group_id")
+                shape_type = shape.get("shape_type", "polygon")
+                mask = labelme.utils.shape_to_mask(img.shape[:2], points, shape_type)
+
+                if group_id is None:
+                    group_id = uuid.uuid1()
+
+                instance = (label, group_id)
+
+                if instance in masks:
+                    masks[instance] = masks[instance] | mask
+                else:
+                    masks[instance] = mask
+
+                if shape_type == "rectangle":
+                    (x1, y1), (x2, y2) = points
+                    x1, x2 = sorted([x1, x2])
+                    y1, y2 = sorted([y1, y2])
+                    points = [x1, y1, x2, y1, x2, y2, x1, y2]
+                if shape_type == "circle":
+                    (x1, y1), (x2, y2) = points
+                    r = np.linalg.norm([x2 - x1, y2 - y1])
+                    # r(1-cos(a/2))<x, a=2*pi/N => N>pi/arccos(1-x/r)
+                    # x: tolerance of the gap between the arc and the line segment
+                    n_points_circle = max(int(np.pi / np.arccos(1 - 1 / r)), 12)
+                    i = np.arange(n_points_circle)
+                    x = x1 + r * np.sin(2 * np.pi / n_points_circle * i)
+                    y = y1 + r * np.cos(2 * np.pi / n_points_circle * i)
+                    points = np.stack((x, y), axis=1).flatten().tolist()
+                else:
+                    points = np.asarray(points).flatten().tolist()
+
+                segmentations[instance].append(points)
+            segmentations = dict(segmentations)
+
+            for instance, mask in masks.items():
+                cls_name, group_id = instance
+                if cls_name not in class_name_to_id:
+                    continue
+                cls_id = class_name_to_id[cls_name]
+
+                mask = np.asfortranarray(mask.astype(np.uint8))
+                mask = pycocotools.mask.encode(mask)
+                area = float(pycocotools.mask.area(mask))
+                bbox = pycocotools.mask.toBbox(mask).flatten().tolist()
+
+                data["annotations"].append(
+                    dict(
+                        id=len(data["annotations"]),
+                        image_id=image_id,
+                        category_id=cls_id,
+                        segmentation=segmentations[instance],
+                        area=area,
+                        bbox=bbox,
+                        iscrowd=0,
+                    )
                 )
-                viz = imgviz.instances2rgb(
-                    image=img,
-                    labels=labels,
-                    masks=masks,
-                    captions=captions,
-                    font_size=15,
-                    line_width=2,
-                )
-            out_viz_file = osp.join(args.output_dir, "Visualization", base + ".jpg")
-            imgviz.io.imsave(out_viz_file, viz)
+
+            if not args.noviz:
+                viz = img
+                if masks:
+                    labels, captions, masks = zip(
+                        *[
+                            (class_name_to_id[cnm], cnm, msk)
+                            for (cnm, gid), msk in masks.items()
+                            if cnm in class_name_to_id
+                        ]
+                    )
+                    viz = imgviz.instances2rgb(
+                        image=img,
+                        labels=labels,
+                        masks=masks,
+                        captions=captions,
+                        font_size=15,
+                        line_width=2,
+                    )
+                out_viz_file = osp.join(args.output_dir, "Visualization", base + ".jpg")
+                #imgviz.io.imsave(out_viz_file, viz)
+
+                cv2.imwrite(out_viz_file, viz)
+
+
+
+        except Exception as e:
+
+            json_name = base + ".json"
+            img_name = label_file.imagePath
+
+            invalid_path = args.output_dir + "/" +"invalid"
+            if os.path.exists(invalid_path) == False:
+                os.makedirs(invalid_path)
+
+
+            shutil.copy(filename, os.path.join(invalid_path, json_name))
+
+            shutil.copy(img_path, os.path.join(invalid_path, img_name))
+
+            invalid_json_imgs.append(filename)
+            invalid_json_imgs.append(img_path)
+
+
+            print(f"发生错误: {e}")
+            continue
+        
+
 
     with open(out_ann_file, "w") as f:
         json.dump(data, f)
 
 
+invalid_json_imgs = []
+
+def remove_invalid():
+    for i in invalid_json_imgs:
+        print("remove ",i)
+        os.remove(i)
+
 if __name__ == "__main__":
     main()
+    remove_invalid()
