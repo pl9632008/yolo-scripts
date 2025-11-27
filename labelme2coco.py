@@ -230,13 +230,10 @@ def main():
 
             invalid_json_imgs.append(filename)
             invalid_json_imgs.append(img_path)
-
-
+            
             print(f"发生错误: {e}")
             continue
         
-
-
     with open(out_ann_file, "w") as f:
         json.dump(data, f)
 
@@ -245,8 +242,11 @@ invalid_json_imgs = []
 
 def remove_invalid():
     for i in invalid_json_imgs:
-        print("remove ",i)
-        os.remove(i)
+        if os.path.exists(i):
+            os.remove(i)
+            print(f"文件 '{i}' 已安全删除。")
+        else:
+            print(f"文件 '{i}' 不存在，跳过删除。")
 
 if __name__ == "__main__":
     main()
