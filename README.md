@@ -24,5 +24,9 @@ generate_empty_labels.py
 # 8.重新对json中的图片的二进制赋值:  
 modify_json.py  
 
-# 7.重新命名json和对应的img:  
+# 9.重新命名json和对应的img:  
 rename_json.py
+
+
+# 10.img中涂黑:
+drawblack.py
