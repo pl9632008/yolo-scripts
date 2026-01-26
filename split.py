@@ -3,9 +3,10 @@ import random
 import shutil
 def split():
         path_dir = os.listdir(txt_dir)    #获取标签列表
-   
+
+        random.seed(8888)
         random.shuffle(path_dir)
-        split_point = int(0.8 * len(path_dir))
+        split_point = int(0.96   * len(path_dir))
  
         train_set = path_dir[:split_point]
         val_set = path_dir[split_point:]
@@ -30,14 +31,19 @@ if __name__ == '__main__':
 
     ext = ".jpg" #默认图像的后缀
 
-    img_dir = r"D:\split_json_coco\JPEGImages" #原始图像文件夹
-    txt_dir = r"D:\split_json_coco\split" #原始txt文件夹
-    
-    train_img = r"D:\split_json_coco\train_img"#划分train图像文件夹
-    train_txt = r"D:\split_json_coco\train_txt"#划分train_txt文件夹
+    # 基础路径
+    base = r"E:\wjd\yolo_datasets_20251127_coco"
 
-    val_img =r"D:\split_json_coco\val_img"    #划分val图像文件夹
-    val_txt = r"D:\split_json_coco\val_txt" #划分val_txt文件夹
+    # 拼接路径
+    img_dir = os.path.join(base, "JPEGImages")
+    txt_dir = os.path.join(base, "split")
+
+    train_img = os.path.join(base, "dotrain", "train", "images")
+    train_txt = os.path.join(base, "dotrain", "train", "labels")
+
+    val_img = os.path.join(base, "dotrain", "val", "images")
+    val_txt = os.path.join(base, "dotrain", "val", "labels")
+
 
     if os.path.exists(train_img) == False:
         os.makedirs(train_img)
